@@ -1,0 +1,171 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<meta-runner name="MR::  Execute RoundhousE">
+  <description>Executes RoundhousE based on specified parameters</description>
+  <settings>
+    <parameters>
+      <param name="mr.MRExecuteRoundhousE.PathToRoundhousE" value="%system.BUILDSYSTEMROUNDHOUSE%" spec="text description='REQUIRED: Path to the RoundhousE executable.' display='normal' label='Path To RoundhousE:' validationMode='not_empty'" />
+      <param name="mr.MRExecuteRoundhousE.ConnectionString" value="" spec="text description='REQUIRED: ConnectionString - As an alternative to ServerName and Database - You can provide an entire connection string instead.' display='normal' label='Connection String:' validationMode='empty'" />
+      <param name="mr.MRExecuteRoundhousE.ServerName" value="" spec="text description='ServerName - The server and instance you would like to run on. (local) and (local)\SQL2008 are both valid values. Defaults to (local).' display='normal' label='Server Name:' validationMode='empty'" />
+      <param name="mr.MRExecuteRoundhousE.DatabaseName" value="" spec="text description='REQUIRED: DatabaseName - The database you want to create/migrate.' display='normal' label='Database Name:' validationMode='empty'" />
+      <param name="mr.MRExecuteRoundhousE.RepositoryPath" value="%vcsroot.url%" spec="text description='RepositoryPath - The repository. A string that can be anything. Used to track versioning along with the version. Defaults to null.' display='normal' label='Repository Path:' validationMode='empty'" />
+      <param name="mr.MRExecuteRoundhousE.VersionFile" value="%system.teamcity.build.properties.file%.xml" spec="text description='VersionFile - Either an XML file or a DLL that a version can be resolved from. Defaults to _BuildInfo.xml.' display='normal' label='Version File:' validationMode='empty'" />
+      <param name="mr.MRExecuteRoundhousE.VersionXPath" value="//properties/entry[@key='build.number']/text()" spec="text description='Version XPath' display='normal' label='Version XPath:' validationMode='empty'" />
+      <param name="mr.MRExecuteRoundhousE.EnvironmentName" value="" spec="text description='Environment Name' display='normal' label='Environment Name:' validationMode='empty'" />
+      <param name="mr.MRExecuteRoundhousE.Restore" value="$false" spec="checkbox checkedValue='$true' description='Restore Enabled' display='normal' label='Restore Enabled:' uncheckedValue='$false'" />
+      <param name="mr.MRExecuteRoundhousE.RestoreFromPath" value="" spec="text description='Restore From Path' display='normal' label='Restore From Path:' validationMode='empty'" />
+      <param name="mr.MRExecuteRoundhousE.RestoreCustomOptions" value="" spec="text description='Restore Custom Options' display='normal' label='Restore Custom Options:' validationMode='empty'" />
+      <param name="mr.MRExecuteRoundhousE.CreateDatabaseCustomScript" value="" spec="text description='Create Database Custom Script' display='normal' label='Create Database Custom Script:' validationMode='empty'" />
+      <param name="mr.MRExecuteRoundhousE.Drop" value="$false" spec="checkbox checkedValue='$true' description='Drop Enabled' display='normal' label='Drop Enabled:' uncheckedValue='$false'" />
+      <param name="mr.MRExecuteRoundhousE.SqlFilesDirectory" value="%system.teamcity.build.checkoutDir%\" spec="text description='Sql Files Directory' display='normal' label='Sql Files Directory:' validationMode='empty'" />
+      <param name="mr.MRExecuteRoundhousE.OutputPath" value="C:\RoundhousE_runs" spec="text description='Output Path' display='normal' label='Output Path:' validationMode='empty'" />
+      <param name="mr.MRExecuteRoundhousE.Silent" value="$true" spec="checkbox checkedValue='$true' description='Silent Enabled' display='normal' label='Silent Enabled:' uncheckedValue='$false'" />
+      <param name="mr.MRExecuteRoundhousE.RecoveryModeSimple" value="$true" spec="checkbox checkedValue='$true' description='Recovery Mode Simple Enabled' display='normal' label='Recovery Mode Simple Enabled:' uncheckedValue='$false'" />
+    </parameters>
+    <build-runners>
+      <runner name="" type="jetbrains_powershell">
+        <parameters>
+          <param name="jetbrains_powershell_bitness" value="x64" />
+          <param name="jetbrains_powershell_execution" value="STDIN" />
+          <param name="jetbrains_powershell_script_mode" value="CODE" />
+          <param name="teamcity.step.mode" value="execute_if_failed" />
+          <param name="jetbrains_powershell_noprofile" value="true" />
+          <param name="jetbrains_powershell_script_code">
+            <![CDATA[
+              function Execute-Roundhouse {
+                  param(
+                      $ConnectionString = "",
+                      $InstanceName = "",
+                      $DatabaseName = "",
+                      $SqlFilesDirectory = "",
+                      $CommandTimeout = 900,
+                      $CommandTimeoutAdmin = 900,
+                      $RepositoryPath = "",
+                      $VersionFile = "",
+                      $VersionXPath = "",
+                      $AlterDatabaseFolderName = "alterDatabase",
+                      $UpFolderName = "2.Tables and Data (MODIFICATIONS WILL REQUIRE DATABASE REFRESH)",
+                      $DownFolderName = "down",
+                      $RunFirstAfterUpdateFolderName = "3.Synonyms (MODIFICATIONS WILL REQUIRE DATABASE REFRESH)",
+                      $FunctionsFolderName = "4.Functions (DROP CREATE)",
+                      $ViewsFolderName = "5.Views (DROP CREATE)",
+                      $SprocsFolderName = "6.Stored Procedures (DROP CREATE)",
+                      $IndexesFolderName = "7.Indexes (DROP CREATE)",
+                      $PermissionsFolderName = "9.SQL Server Permissions",
+                      $RunAfterOtherAnyTimeScriptsFolderName = "8.Environment Configuration Data",
+                      $SchemaName = "RoundhousE",
+                      $VersionTableName = "Version",
+                      $ScriptsRunTableName = "ScriptsRun",
+                      $ScriptsRunErrorsTableName = "ScriptsRunErrors",
+                      $EnvironmentName = "",
+                      $CreateDatabaseCustomScript = "",
+                      $OutputPath = "",
+                      $DatabaseType = "roundhouse.databases.sqlserver.SqlServerDatabase, roundhouse",
+                      [bool]$Restore = $false,
+                      $RestoreFromPath = "",
+                      $RestoreCustomOptions = "",
+                      $RestoreTimeout = 900,
+                      [bool]$Drop = $false,
+                      [bool]$DoNotCreateDatabase = $false,
+                      [bool]$WarnOnOneTimeScriptChanges = $false,
+                      [bool]$Silent = $true,
+                      [bool]$WithTransaction = $false,
+                      [bool]$RecoveryModeSimple = $false,
+                      [bool]$RunAllAnyTimeScripts = $false,
+                      [bool]$DisableTokenReplacement = $false,
+                      [bool]$IsDebug = $false
+                  )
+                  
+                  $roundhouse = "%mr.MRExecuteRoundhousE.PathToRoundhousE%"
+                  
+                  Write-Host "We're running in the following location : $roundhouse"
+               
+                  $arguments = @();
+               
+                  if ($ConnectionString -ne "") { $arguments += "--cs=`"$ConnectionString`"" }
+                  if ($InstanceName -ne "") { $arguments += "--server=`"$InstanceName`"" }
+                  if ($DatabaseName -ne "") { $arguments += "--db=`"$DatabaseName`"" }
+                  if ($SqlFilesDirectory -ne "") { $arguments += "--files=`"$SqlFilesDirectory`"" }
+                  $arguments += "--ct=`"$CommandTimeout`""
+                  $arguments += "--cta=`"$CommandTimeoutAdmin`""
+                  if ($RepositoryPath -ne "") { $arguments += "--repo=`"$RepositoryPath`"" }
+                  if ($VersionFile -ne "") { $arguments += "--vf=`"$VersionFile`"" }
+                  if ($VersionXPath -ne "") { $arguments += "--vx=`"$VersionXPath`"" }
+                  $arguments += "--ad=`"$AlterDatabaseFolderName`""
+                  $arguments += "--up=`"$UpFolderName`""
+                  $arguments += "--down=`"$DownFolderName`""
+                  $arguments += "--rf=`"$RunFirstAfterUpdateFolderName`""
+                  $arguments += "--fu=`"$FunctionsFolderName`""
+                  $arguments += "--vw=`"$ViewsFolderName`""
+                  $arguments += "--sp=`"$SprocsFolderName`""
+                  $arguments += "--ix=`"$IndexesFolderName`""
+                  $arguments += "--permissions=`"$PermissionsFolderName`""
+                  $arguments += "--ra=`"$RunAfterOtherAnyTimeScriptsFolderName`""
+                  $arguments += "--sc=`"$SchemaName`""
+                  $arguments += "--vt=`"$VersionTableName`""
+                  $arguments += "--srt=`"$ScriptsRunTableName`""
+                  $arguments += "--sret=`"$ScriptsRunErrorsTableName`""
+                  $arguments += "--env=`"$EnvironmentName`""
+                  $arguments += "--cds=`"$CreateDatabaseCustomScript`""
+                  $arguments += "--output=`"$OutputPath`""
+                  $arguments += "--dt=`"$DatabaseType`""
+
+                  if ($Restore) { $arguments += "--restore" }
+                  $arguments += "--rfp=`"$RestoreFromPath`""
+                  $arguments += "--rco=`"$RestoreCustomOptions`""
+                  $arguments += "--rt=`"$RestoreTimeout`""
+
+                  if ($Drop) { $arguments += "--drop" }
+                  if ($DoNotCreateDatabase) { $arguments += "--dc" }
+                  if ($WarnOnOneTimeScriptChanges) { $arguments += "--warnononetimescriptchanges" }
+                  if ($Silent) { $arguments += "--silent" }
+                  if ($WithTransaction) { $arguments += "--trx" }
+                  if ($RecoveryModeSimple) { $arguments += "--simple" }
+                  if ($RunAllAnyTimeScripts) { $arguments += "--runallanytimescripts" }
+                  if ($DisableTokenReplacement) { $arguments += "--disabletokens" }
+                  if ($IsDebug) { $arguments += "--debug" }
+               
+                  Write-Host "Invoking RoundhousE Exe : $roundhouse"
+                  Write-Host "Arguments               : $arguments"
+
+                  $psi = New-object System.Diagnostics.ProcessStartInfo 
+                  $psi.CreateNoWindow = $true 
+                  $psi.UseShellExecute = $false 
+                  $psi.RedirectStandardOutput = $true 
+                  $psi.RedirectStandardError = $true 
+                  $psi.FileName = $roundhouse
+                  $psi.Arguments = $arguments 
+                  $process = New-Object System.Diagnostics.Process 
+                  $process.StartInfo = $psi 
+                  [void]$process.Start()
+                  $output = $process.StandardOutput.ReadToEnd() 
+                  $process.WaitForExit() 
+                  Write-Host $output
+              }
+
+              Execute-Roundhouse `
+                  -ConnectionString '%mr.MRExecuteRoundhousE.ConnectionString%' `
+                  -InstanceName '%mr.MRExecuteRoundhousE.ServerName%' `
+                  -DatabaseName '%mr.MRExecuteRoundhousE.DatabaseName%' `
+                  -SqlFilesDirectory '%mr.MRExecuteRoundhousE.SqlFilesDirectory%' `
+                  -RepositoryPath '%mr.MRExecuteRoundhousE.RepositoryPath%' `
+                  -VersionFile "%mr.MRExecuteRoundhousE.VersionFile%" `
+                  -VersionXPath "%mr.MRExecuteRoundhousE.VersionXPath%" `
+                  -EnvironmentName '%mr.MRExecuteRoundhousE.EnvironmentName%' `
+                  -CreateDatabaseCustomScript '%mr.MRExecuteRoundhousE.CreateDatabaseCustomScript%' `
+                  -OutputPath '%mr.MRExecuteRoundhousE.OutputPath%' `
+                  -Restore %mr.MRExecuteRoundhousE.Restore% `
+                  -RestoreFromPath '%mr.MRExecuteRoundhousE.RestoreFromPath%' `
+                  -RestoreCustomOptions "%mr.MRExecuteRoundhousE.RestoreCustomOptions%" `
+                  -Drop %mr.MRExecuteRoundhousE.Drop% `
+                  -Silent %mr.MRExecuteRoundhousE.Silent% `
+                  -RecoveryModeSimple %mr.MRExecuteRoundhousE.RecoveryModeSimple%
+
+            ]]>
+          </param>
+        </parameters>
+      </runner>
+    </build-runners>
+    <requirements />
+  </settings>
+</meta-runner>
+
